@@ -1,48 +1,59 @@
-
-
-
 import numpy as np
 from scipy.stats import qmc
 
-
-# define uniform samples on the domain
-# specify the dimension of the domain and domain range
 def domain_samples(num_samples: int, dim: int, domain_range: np.ndarray) -> np.ndarray:
-   
-    # num_samples is the number of samples to generate
-    # dim is the dimension of the domain
-    # domain_range is a 2d array of shape (2, dim), where the first row is the lower bound and the second row is the upper bound of the domain 
-
     sampler = qmc.LatinHypercube(d = dim)
     samples = sampler.random(n = num_samples)
-    # scale the samples to the domain range
     scaled_samples = qmc.scale(samples, l_bounds = domain_range[0], u_bounds = domain_range[1])
-   
     return scaled_samples
 
-# # decompose domain samples into equivalent classes by each forward model.
-def equivalent_classes(domain_samples: np.ndarray, 
-                       forward_model: callable, 
-                       discretization: tuple ) -> np.ndarray:
-    
-    # domain_samples: a 2d array of shape (num_samples,dim), 
-    # forward_model: a callable function that takes in domain samples and returns 1D data samples
-    # a and b are coefficients for the forward model 
 
-    data_samples = forward_model(domain_samples)
-    index = (data_samples - discretization[1])/ discretization[2] 
-    inbound = (index >= 0) & (index <= len(discretization[0]))
-    index[inbound] = np.floor(index[inbound]).astype(int) 
-    index[~inbound] = -1 # assign -1 to samples that are out of bounds of the discretized data range
-    
-    return index
+def equivalent_classes(data_samples: np.ndarray,
+                       *args) -> np.ndarray:
+    """Map samples into discretized equivalent classes.
 
+    Supported call patterns:
+      equivalent_classes(samples, discretization)
+      equivalent_classes(samples, forward_model, discretization)
+      equivalent_classes(samples, discretization, forward_model)
+    """
+    if len(args) == 0:
+        raise TypeError("equivalent_classes requires a discretization tuple, with an optional forward model.")
 
+    if len(args) == 1:
+        discretization = args[0]
+        forward_model = None
+    elif len(args) == 2:
+        first, second = args
+        if callable(first):
+            forward_model, discretization = first, second
+        elif callable(second):
+            discretization, forward_model = first, second
+        else:
+            raise TypeError("The second argument must be either a discretization tuple or a forward model callable.")
+    else:
+        raise TypeError("equivalent_classes accepts at most two optional arguments beyond data_samples.")
 
+    if forward_model is not None:
+        data_samples = np.asarray(forward_model(data_samples))
 
+    # Ensure data_samples is properly shaped
+    if data_samples.ndim == 1:
+        data_samples = data_samples[:, np.newaxis]
 
+    _, datamin, cell_width, grid_shape = discretization
 
+    index = (data_samples - datamin) / cell_width
+    inbound = (index >= 0) & (index < np.array(grid_shape))
+    all_inbound = inbound.all(axis=1)
 
+    multi_index = np.floor(index).astype(int)
+    flat_index = np.full(data_samples.shape[0], -1)
 
+    if all_inbound.any():
+        valid_multi_indices = multi_index[all_inbound]
+        valid_flat_indices = np.ravel_multi_index(valid_multi_indices.T, grid_shape)
+        flat_index[all_inbound] = valid_flat_indices
 
+    return flat_index
 

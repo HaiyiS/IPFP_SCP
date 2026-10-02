@@ -1,7 +1,8 @@
-## after obtaining the final weighted samples, we use them to forecast later stage of the pandemic using the SIR forward models
-## compare the forecasted results with real data.
-
-## this is for boxplots and forecast over time generation 
+"""after obtaining the final weighted samples, (iteration_SIRX.py)
+ we use them to forecast later stage of the pandemic using the SIR forward models
+ and compare the forecasted results with real data.
+this is for boxplots and forecast over time generation 
+"""
 
 import sys
 import os
@@ -10,7 +11,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
-from forward_SIRX import forecast_models, SIR_solution
+from forward_SIRX import SIR_master_model, SIR_solution
 import json 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -26,9 +27,12 @@ num_samples = domain_samples.shape[0]
 print(f"Sum of weights: {np.sum(weights)}")
 
 ### forecast at specific time 
-### remember to change the forecast model after change the time points
 times = [10,20,30,40,50,60,70,80,90]
 num_time = len(times)
+
+# PRECOMPUTE ODE FORECASTS ONCE
+print("Precomputing ODE forecasts for all time points...")
+all_forecasts = SIR_master_model(domain_samples, times)
 
 # the list of target FIPS codes
 fips_codes = ['01081', '01125', '04005', '04013', '04019', '05143', 
@@ -84,7 +88,9 @@ for j in range(num_time):
         population = covid_datafull.loc[covid_datafull['fips'] == fips_codes[i], 'Population'].iloc[0]
         data[i] = (case_dur - cases_start)/population
     
-    forecasts = forecast_models[j](domain_samples)
+    # SLICE PRECOMPUTED MATRIX HERE
+    forecasts = all_forecasts[:, j]
+    
     min_val = np.min(data)
     max_val = np.max(data)
     bin_width = (max_val - min_val)/10
@@ -120,7 +126,6 @@ for j in range(num_time):
     norm_weights = weights / np.sum(weights)
     # Resample forecasts to convert the weighted distribution into unweighted observations
     forecasts_resampled = np.random.choice(forecasts, size=30000, p=norm_weights)
-    
     # Store real data observations
     for val in data:
         boxplot_records.append({'Time': times[j], 'Value': val, 'Type': 'Real Data'})
@@ -131,13 +136,11 @@ for j in range(num_time):
 # Convert all records to a tidy DataFrame
 df_boxplot = pd.DataFrame(boxplot_records)
 
+# save the datafram/ the index=False argument prevents pandas from writing row numbers to the file
+df_boxplot.to_csv('boxplot_data56.csv', index=False)
 # -----------------------------------------------------------------
 # PLOT 1: THE NEW BOXPLOT COMPARISON
 # -----------------------------------------------------------------
-# Note: Since 18 time points can get crowded, we make the figure wide. 
-# If you only want specific time points (e.g., 10, 30, 50), filter df_boxplot here:
-# df_boxplot = df_boxplot[df_boxplot['Time'].isin([10, 30, 50, 70, 90])]
-
 plt.figure(figsize=(12, 6))
 sns.boxplot(
     x='Time', 

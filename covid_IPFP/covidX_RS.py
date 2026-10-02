@@ -1,5 +1,5 @@
 ## this is the random sampling part of the forward_SIRX model.
-
+## we consider only one dimensional slice which describe distribution on a specific time point.
 
 import sys
 import os
@@ -11,8 +11,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
 from discrete_range import discretization
-from forward_SIRX import forward_models
+from forward_SIRX import SIR_master_model
 from domain import domain_samples, equivalent_classes
+
 import json 
 from sklearn.mixture import GaussianMixture
 import matplotlib.pyplot as plt
@@ -66,6 +67,9 @@ duration35d = timedelta(days = 35)
 duration42d = timedelta(days = 42)
 duration49d = timedelta(days = 49)
 duration56d = timedelta(days = 56)
+duration63d = timedelta(days = 63)
+duration77d = timedelta(days = 77)
+
 duration1 = timedelta(days=  10)
 duration2 = timedelta(days = 20)
 duration3 = timedelta(days =30)
@@ -78,7 +82,16 @@ duration7 = timedelta(days =70)
 #duration = [duration1, duration2, duration3]
 #duration = [duration1, duration2, duration3,duration4,duration5]
 #duration = [duration1, duration3, duration5]
-duration = [duration7d,duration21d,duration35d,duration49d,duration56d]
+duration = [
+            duration7d,
+#            duration14d,
+            duration21d,
+#            duration28d,
+            duration35d,
+            duration42d,
+            duration49d
+ #           duration56d
+            ]
 num_dur = len(duration)
 
 
@@ -100,11 +113,11 @@ for dur in duration:
     plt.xlabel('Cumulative Case Percentage Increment')
     plt.ylabel('Frequency')
     plt.grid(axis='y', alpha=0.75)
-    plt.show()
+    plt.close()
     # discretize the data
     data_discretization.append(discretization(data, num_cells = 5))
 
-print(np.sum(data_discretization[1][0]))
+print(np.sum(data_discretization[0][0]))
 
 with open('covidX_data_discretization.json','w') as file:
     # Convert numpy arrays to lists for JSON serialization
@@ -123,19 +136,44 @@ with open('covidX_data_discretization.json','w') as file:
 ### first, we create latin hypercube samples on the domain
 ### we assume the domain is a sufficiently large hypercube that cover all the possible parameter values
 num_samples = 50000
-domain_samples = domain_samples(num_samples, dim = 4, domain_range = np.array([[0,0,0.2,0],[3,3,0.995,0.005]]))
+domain_samples = domain_samples(num_samples, dim = 4, domain_range = np.array([[0,0,0.3,0],[3,3,0.998,0.002]]))
 
 
-########################## we decompose the domain samples into equivalent classes by each forward model
+# Define the unique time points you need for all increments/ have to match the real data
+eval_times = [0,7,14,21,28,35,42,49]
+
+#  Run the ODE solver ONCE for all 100,000 samples and all time points
+print("Running master ODE simulations...")
+
+all_results = SIR_master_model(domain_samples, eval_times) 
+
+
+#  Create the data samples for each duration by simply subtracting the columns/ has to match the real data 
+precomputed_samples = [
+    all_results[:, 1] -all_results[:,0], 
+#    all_results[:, 2]-all_results[:,0], 
+    all_results[:, 3]-all_results[:,0], 
+#    all_results[:, 4]-all_results[:,0],
+    all_results[:, 5]-all_results[:,0],
+    all_results[:, 6]-all_results[:,0],
+    all_results[:, 7]-all_results[:,0]
+#    all_results[:,8] -all_results[:,0]
+]
+
+# Loop through the precomputed intervals to get equivalent classes
 indices = np.zeros((num_dur, num_samples))
 for i in range(num_dur):
-    index = equivalent_classes(domain_samples, forward_models[i],data_discretization[i])    
+    # Pass the precomputed slice directly instead of a callable forward model
+    index = equivalent_classes(precomputed_samples[i], data_discretization[i])    
     indices[i] = index
+
 inbound_joint = np.where(np.all(indices > -1, axis=0))[0] 
-domain_samples = domain_samples[inbound_joint] # # only keep the samples that are in the inbound of all forward models
-indices = indices[:, inbound_joint].astype(int) # only keep indices that are in the inbound for all forward models.
+domain_samples = domain_samples[inbound_joint] 
+indices = indices[:, inbound_joint].astype(int) 
+
 print(indices.shape)
 print(domain_samples.shape)
+
 #################### save the domain samples that match the range of data and their equivalent classes for iteration
 np.save('SIRX_domain_samples.npy', domain_samples)
 np.save('SIRX_indices.npy', indices)

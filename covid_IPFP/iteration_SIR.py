@@ -6,7 +6,6 @@
 import numpy as np
 import json
 from scipy.stats import multivariate_normal
-from forward_SIR import forward_models
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import seaborn as sns
