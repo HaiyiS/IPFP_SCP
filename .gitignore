@@ -1,0 +1,11 @@
+# ignore results and plots
+exponentialdecay/
+linearexperiment/
+nonlinearexperiment1/
+nonlinearexperiment2lam1lam2+lam2^2
+results plots of covid19/
+resultsplotRSS_56d_40/
+covid_IPFP/forecast_SIRX.py
+covid_IPFP/covid2X_RS.py
+covid_IPFP/covidX_RS.py
+

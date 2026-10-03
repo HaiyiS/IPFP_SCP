@@ -5,18 +5,28 @@ this is for boxplots and forecast over time generation
 """
 
 import sys
-import os
+from pathlib import Path
 
-# Get the path to the parent directory (IPFP) and add it to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Find the directory the script is in, then go up one level to the IPFP folder
+project_root = Path(__file__).parent.parent
+
+# Add that IPFP folder to Python's official search path
+sys.path.append(str(project_root))
 
 import numpy as np
-from forward_SIRX import SIR_master_model, SIR_solution
+from forward_SIRX import SIR_master_model
 import json 
 import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import date, timedelta
 import seaborn as sns
+
+
+#Get the exact directory where this specific Python script lives
+script_dir = Path(__file__).parent
+
+data_full = script_dir.parent / "Collegetowndata" / "college_town_data_dec22.csv"
+data_date = script_dir.parent / "Collegetowndata" / "omicron_surge_start_dates.csv"
 
 # Set random seed for reproducible resampling
 np.random.seed(42)
@@ -57,8 +67,8 @@ fips_codes = ['01081', '01125', '04005', '04013', '04019', '05143',
     '55093', '55097', '56001' ]
 
 # first, read and process the data
-covid_datafull = pd.read_csv('college_town_data_dec22.csv', parse_dates=True, dtype={'fips': str})
-covid_start_date = pd.read_csv('omicron_surge_start_dates.csv', parse_dates=True, dtype={'fips': str})
+covid_datafull = pd.read_csv(data_full, parse_dates=True, dtype={'fips': str})
+covid_start_date = pd.read_csv(data_date, parse_dates=True, dtype={'fips': str})
 covid_datafull['date'] = pd.to_datetime(covid_datafull['date'])
 covid_datafull['fips'] = covid_datafull['fips'].astype(str).str.zfill(5)
 
