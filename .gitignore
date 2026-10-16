@@ -9,3 +9,8 @@ covid_IPFP/forecast_SIRX.py
 covid_IPFP/covid2X_RS.py
 covid_IPFP/covidX_RS.py
 
+#the macOS and Python cache files
+.DS_Store
+__pycache__/
+*.pyc
+
